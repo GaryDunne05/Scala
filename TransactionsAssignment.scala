@@ -50,36 +50,6 @@ object TransactionAssignment extends App {
    * 
    */
 
- //-----------------------------------------------Q1-------------------------------------------------------
-  def getTransactionTotal(transactions:Map[Int, List[Transaction]]):List[Int] ={for(i <- 1 to transactions.keys.size){
-      var sum = 0.0
-      for(x <- 0 to transactions(i).length-1){
-        sum += transactions(i)(x).transactionAmount
-      }
-      println("Day " + transactions(i)(0).transactionDay + ": " + sum)}
-    List()
-  }
-  val transactionsByDay = transactions.groupBy(_.transactionDay)
-  val myMap = ListMap(transactionsByDay.toSeq.sortBy(_._1):_*)
-  //println(myMap.values.map(_.map(_.transactionAmount).sum))
-  //getTransactionTotal(transactionsByDay)
-
-  //-----------------------------------------------Q2-------------------------------------------------------
-  case class Question2Result(
-                            accountId: String,
-                            categoryAvgValueMap: Map[String, Double]
-                            )
-
-  def getAverageTransactionsPerAccountType(transactions: List[Transaction]): Seq[Question2Result] = {
-    transactions.groupBy(x => (x.accountId, x.category))
-      .mapValues(_.map(_.transactionAmount))
-      .mapValues(amounts => amounts.sum / amounts.size)
-      .map(x => Question2Result(x._1._1, Map(x._1._2 -> x._2)))
-      .toSeq
-      .sortBy(_.accountId)
-  }
-  val question2ResultValue = getAverageTransactionsPerAccountType(transactions)
-  //question2ResultValue.foreach(println(_))
   //-----------------------------------------------Q3-------------------------------------------------------
   case class Question3Result(
                             transcationDay:Int,
@@ -90,27 +60,31 @@ object TransactionAssignment extends App {
                             ccTotal:Double,
                             ffTotal:Double
                             )
-  val loop = List.range(1, transactions.groupBy(_.transactionDay).toSeq.length + 1)
-  var rolling = Map()
-  val daySizes = transactionsByDay.map(_._2.length)
 
-  for (i <- loop){ //looping through transactionsByDay
-    print(i + ": ")
-    var newWindow = Double
-    for (j <- i-5 to i-1){ //looping through rolling window
-      if (j > 0){
-        print(j + " ")
-      }
-    }
-    println()
+  def getMinDay(day:Int):Int = {
+    if (day >= 5) day-5
+    else 1
   }
-  val transactionsByAccount = transactions.groupBy(_.accountId)
-  var max = 0.0
-  for (i <- myMap.keys){
-    val currentList = myMap.get(i)
+
+  def getResults(thisTransaction:((Int,String), List[Transaction])): Any = {
+    val rollingWindow = transactionsByDayAndID.filter(_._1._2 == thisTransaction._1._2)
+      .filter(_._1._1 < thisTransaction._1._1)
+      .filter(_._1._1 > getMinDay(thisTransaction._1._1))
+    val windowValues = rollingWindow.flatMap(_._2.map(_.transactionAmount))
+    if (windowValues.nonEmpty){
+      Question3Result(
+        thisTransaction._1._1,
+        thisTransaction._1._2,
+        windowValues.max,
+        windowValues.sum / windowValues.size,
+        rollingWindow.flatMap(_._2.filter(_.category == "AA").map(_.transactionAmount)).sum,
+        rollingWindow.flatMap(_._2.filter(_.category == "CC").map(_.transactionAmount)).sum,
+        rollingWindow.flatMap(_._2.filter(_.category == "FF").map(_.transactionAmount)).sum
+      )
+    } else { Question3Result(thisTransaction._1._1, thisTransaction._1._2, 0.0, 0.0, 0.0, 0.0, 0.0) }
   }
-  val transactionsByDayAndID = myMap.mapValues(x => x.sortBy(_.accountId))
-  for (i <- transactionsByDayAndID.keys){
-    transactionsByDayAndID.get(i).foreach(println(_))
-    }
+  val transactionsByDayAndID = ListMap(transactions.groupBy(x => (x.transactionDay, x.accountId)).toSeq.sortBy(_._1):_*)
+  val question3ResultValue = transactionsByDayAndID.map(getResults)
+  question3ResultValue.foreach(println)
+
 }
